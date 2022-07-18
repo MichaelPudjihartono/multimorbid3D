@@ -88,12 +88,20 @@ def parse_grn(grn_dir, logger):
             os.path.join(grn_dir, chrom, 'significant_eqtls.txt'), sep='\t')
         grn.append(chrom_eqtls)
     return pd.concat(grn)
-    
+
+
+#Called within comorbid3d's parse_snps() as such:
+#    eqtls = query_grn.get_eqtls(snps, grn, output_dir,
+#                                non_spatial, non_spatial_dir, snp_ref_dir, gene_ref_dir,
+#                                ld, corr_thresh, window, window_size, window_control, population, ld_dir, logger)  
+
+#multimorbid3dm hw realization: added window_size AND window_control here!!    
 def get_eqtls(snps, grn, output_dir,
               non_spatial, non_spatial_dir, snp_ref_dir, gene_ref_dir,
-              ld, corr_thresh, window, population, ld_dir, logger, bootstrap=False):
+              ld, corr_thresh, window, window_size, window_control, population, ld_dir, logger, bootstrap=False):
     if ld:
-        ld_snps = ld_proxy.ld_proxy(snps, corr_thresh, window, population, ld_dir, logger, bootstrap)
+        #multimorbid3dm hw realization: added window_size AND window_control here!!
+        ld_snps = ld_proxy.ld_proxy(snps, corr_thresh, window, window_size, window_control, population, ld_dir, logger, bootstrap)
         snps = ld_snps['rsidt'].drop_duplicates()
         write_results(ld_snps, os.path.join(output_dir, 'query_snp_ld.txt'))
     constrained_eqtls = grn[grn['snp'].isin(snps)]

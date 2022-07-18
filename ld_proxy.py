@@ -22,8 +22,23 @@ def parse_snps(snps_input, logger):
     else:
         return pd.DataFrame({'snp': snps_input})
     
+
+
+#Called within below's ld_proxy as such:
+#    with mp.Pool(16) as pool:
+#        pool.starmap(ld_proxy_chrom,
+#                     zip(chrom_list,
+#                        repeat(query_snps),
+#                        ###repeat(chrom_dict)###,
+#                        repeat(corr_thresh),
+#                        repeat(window),
+#                        repeat(window_size),    #multimorbid3dm: added window_size here
+#                        repeat(window_control), #multimorbid3dm: added window_control here
+#                        repeat(pop),
+#                        repeat(ld_dir)))
     
-def ld_proxy_chrom(chrom, query_snps, corr_thresh, window, pop, ld_dir):
+#multimorbid3dm: added window_size AND window_control here    
+def ld_proxy_chrom(chrom, query_snps, corr_thresh, window, window_size, window_control, pop, ld_dir):
     pd.options.mode.chained_assignment = None
     db = create_engine(f'sqlite:///{ld_dir}/{chrom}.db', 
                        echo=False, poolclass=NullPool)
@@ -37,24 +52,51 @@ def ld_proxy_chrom(chrom, query_snps, corr_thresh, window, pop, ld_dir):
     if len(snps) == 0:
         return 
     snps = pd.concat(snps)
-    snps = snps[(abs(snps['posq']-snps['post']) <= window)]
+
+    if chrom == 'chr17':
+        print(f'{chrom} detected! problematic_locus filtered by: {window_control}, non_problematic_locus_filtered?: {window})')
+        problematic_locus = snps[(snps['posq'] >= 41000000) & (snps['posq'] <= 47000000)]
+        non_problematic_locus = snps[(snps['posq'] <= 41000000) | (snps['posq'] >= 47000000)]
+        
+        #multimorbid3dm: add window_control here
+        problematic_locus = problematic_locus[(abs(problematic_locus['posq']-problematic_locus['post']) <= window_control)]
+        if window:
+            print(f'{chrom} detected! non_problematic_locus_filtered?: {window}, by? {window_size}')
+            non_problematic_locus = non_problematic_locus[(abs(non_problematic_locus['posq']-non_problematic_locus['post']) <= window_size)]
+        snps = pd.concat([problematic_locus, non_problematic_locus])
+        
+    if chrom != 'chr17':
+        if window:
+            print(f'{chrom} detected! filter by {window_size}')
+            snps = snps[(abs(snps['posq']-snps['post']) <= window_size)] #This subsets the previous giant dataframe to satisfy the window_size requirement
+
     if snps.empty:
         return
+
     snps.loc[:, 'chromt_post'] = snps['chromt'].astype(str)  + '_' + snps['post'].astype(str) 
     res = snps[['rsidt', 'chromt_post']]
     res = pd.DataFrame(res['rsidt'].str.split(';').tolist(), index=res['chromt_post']).stack()
     res = res.reset_index()[[0, 'chromt_post']] 
     res.columns = ['rsidt_res', 'chromt_post']
+    res = res.drop_duplicates()   #multimorbid3dm: I added this drop_duplicates() to res right here to make the merge become VERY VERY FAST!
+
     snps = (snps
                 .merge(res, how='inner', on='chromt_post')
                .drop(columns=['chromt_post', 'rsidt'])
                .rename(columns={'rsidt_res': 'rsidt'})
            )
+    print(f'DONE 1st merge...{chrom}')  ##########TEMPORARY CHECK#############
+
     chrom_dict[chrom] = snps[['chromq',	'posq', 'rsidq', 'chromt', 'post', 'rsidt', 'corr','dprime']]
 
 
+#Called within find_snp_disease.py's find_disease() as such:
+#ld_snps = ld_proxy.ld_proxy(snps, corr_thresh, window, window_size, window_control, population, ld_dir, logger, bootstrap)
 
-def ld_proxy(query_snps, corr_thresh, window, pop, ld_dir, logger, bootstrap):
+#multimorbid3dm: added window_size AND window_control here
+def ld_proxy(query_snps, corr_thresh, window, window_size, window_control, pop, ld_dir, logger, bootstrap): #Called within query_grn.py's get_eqtls() as such:
+                                                                                                            #    if ld:
+                                                                                                            #           ld_snps = ld_proxy.ld_proxy(snps, corr_thresh, window, window_size, window_control, population, ld_dir, logger, bootstrap)
     ld_dir = os.path.join(ld_dir, pop)
     chrom_list = [fp.split('.')[0] for fp in os.listdir(ld_dir) if fp.startswith('chr')]
     global chrom_dict
@@ -77,6 +119,8 @@ def ld_proxy(query_snps, corr_thresh, window, pop, ld_dir, logger, bootstrap):
                         #repeat(chrom_dict),
                         repeat(corr_thresh),
                         repeat(window),
+                        repeat(window_size),   #multimorbid3dm: added window_size here
+                        repeat(window_control), #multimorbid3dm: added window_control here
                         repeat(pop),
                         repeat(ld_dir)))
     df = []
@@ -86,6 +130,9 @@ def ld_proxy(query_snps, corr_thresh, window, pop, ld_dir, logger, bootstrap):
         df = pd.DataFrame()
     else:
         df = pd.concat(df)
+
+    logger.write('DONE LD multiprocess') ##########TEMPORARY CHECK#############
+
     query_snps_df = pd.DataFrame({'chromq': '',
                         'posq': '',
                         'rsidq': query_snps,

@@ -40,7 +40,13 @@ def clean_snp_ids(snp_id):
             snp_id = snp_id.split('_')[0]
             return f"rs{snp_id}" if not snp_id[:-1].isdigit() else f"rs{snp_id[:-1]}"
 
-def find_disease(gwas, ppin_dir, out, ld, corr_thresh, window, population, ld_dir,
+#Called within comorbid.py's pipeline() as such:
+#    sig_res = find_snp_disease.find_disease(
+#        gwas, output_dir, output_dir, args.ld, args.correlation_threshold,
+#        args.window, args.window_size, args.window_control, args.population, args.ld_dir, logger, bootstrap=bootstrap)
+
+#multimorbid3dm: I add a new/additional argument specification for this function -> window_size AND window_control
+def find_disease(gwas, ppin_dir, out, ld, corr_thresh, window, window_size, window_control, population, ld_dir,
                  logger, disable_pg=True, bootstrap=False):
     #logger.write('Identifying GWAS traits.')
     sig_res = []
@@ -52,18 +58,24 @@ def find_disease(gwas, ppin_dir, out, ld, corr_thresh, window, population, ld_di
     M = gwas['SNPS'].nunique()
     for level_fp in eqtl_fps:
         level = f"{os.path.basename(level_fp).split('.')[0].split('_')[0]}"
+        logger.write(f"{level}")          ##########TEMPORARY CHECK#############
         #logger.write(f"\t{level}")
         df = pd.read_csv(os.path.join(ppin_dir, level_fp), sep='\t')
         if df.empty:
             continue
         snps = df['snp'].drop_duplicates().tolist()
         if ld:
-            ld_snps = ld_proxy.ld_proxy(snps, corr_thresh, window, population, ld_dir, logger, bootstrap)
+            #multimorbid3dm: I add "window_size" AND "window_control" here
+            ld_snps = ld_proxy.ld_proxy(snps, corr_thresh, window, window_size, window_control, population, ld_dir, logger, bootstrap)
             if not ld_snps.empty:
                 snps = ld_snps['rsidt'].drop_duplicates().tolist()
+
+                logger.write('START 2nd merge') ##########TEMPORARY CHECK#############
                 df = (df.merge(ld_snps, left_on='snp', right_on='rsidq')
                       .sort_values(by=['snp', 'gene', 'dprime'])
                       .drop_duplicates(subset=['snp', 'rsidt', 'gene', 'dprime']))
+                logger.write('DONE 2nd merge') ##########TEMPORARY CHECK#############
+
                 write_results(df,  f'{level}_snp_gene.txt', out)
         overlap = gwas.loc[gwas['SNPS'].isin(snps)].drop_duplicates()
         # Total level eQTLs that are in the GWAS Catalog. 

@@ -114,8 +114,14 @@ def parse_args():
         '-c', '--correlation-threshold', default=0.8, type=int,
         help='The r-squared correlation threshold to use.')
     parser.add_argument(
-        '-w', '--window', default=5000, type=int,
+        '-w', '--window', action='store_true', default=False,
+        help='Use genomic distance as filter for ld')
+    parser.add_argument(
+        '-ws', '--window-size', default=5000, type=int,
         help='The genomic window (+ or - in bases) within which proxies are searched. Default = 5000')
+    parser.add_argument(
+        '-wc', '--window-control', default=5000, type=int,
+        help='The genomic window (+ or - in bases) within which proxies are searched in the problematic locus on chromosome 17, highly recommended to keep this number low. Default = 5000')
     parser.add_argument(
          '--population', default='EUR', choices=['EUR'],
         help='The ancestral population in which the LD is calculated. Default = "EUR"')
@@ -124,9 +130,18 @@ def parse_args():
         help='Directory containing LD database.')
     return parser.parse_args()
 
+
+#Called within the execution part as such:
+#        snps, genes = parse_snps(
+#            args.snps, args.trait, args.pmid, gwas, grn, args.output_dir,
+#            args.non_spatial, args.non_spatial_dir, args.snp_ref_dir, args.gene_ref_dir,    #multimorbid3dm homework, implement args.window, args.window_size, args.window_control here somehow!!!
+#            args.ld, args.correlation_threshold, args.window, args.window_size, args.window_control, args.population, args.ld_dir,
+#            logger)
+
+#multimorbid3dm hw realization: added window_size AND window_control here!
 def parse_snps(snp_arg, trait_arg, pmid_arg, gwas, grn, output_dir,
                non_spatial, non_spatial_dir, snp_ref_dir, gene_ref_dir,
-               ld, corr_thresh, window, population, ld_dir, logger):
+               ld, corr_thresh, window, window_size, window_control, population, ld_dir, logger):
     if (snp_arg and trait_arg) or (snp_arg and pmid_arg) or (trait_arg and pmid_arg):
         sys.exit('Only one of --snps, --trait, or --pmid is required.\nExiting.')
     snps = pd.DataFrame()
@@ -144,9 +159,10 @@ def parse_snps(snp_arg, trait_arg, pmid_arg, gwas, grn, output_dir,
         snps = query_grn.extract_trait_snps(trait_arg, gwas, logger)
     elif pmid_arg:
         snps = query_grn.extract_pmid_snps(pmid_arg, gwas, logger)
+    #multimorbid3dm hw realization: added window_size AND window_control here!!
     eqtls = query_grn.get_eqtls(snps, grn, output_dir,
                                 non_spatial, non_spatial_dir, snp_ref_dir, gene_ref_dir,
-                                ld, corr_thresh, window, population, ld_dir, logger)
+                                ld, corr_thresh, window, window_size, window_control, population, ld_dir, logger)
     return snps, eqtls
 
 def parse_genes(genes_args, logger):
@@ -166,6 +182,8 @@ def join_path(*args):
         fp = os.path.join(fp, arg)
     return fp
 
+#Called within the execution part as such:
+#sig_res = pipeline(genes, gwas, args.output_dir,  args, logger)
 def pipeline(genes, gwas, output_dir, args, logger, bootstrap=False):
     # PPIN
     gene_list = []
@@ -186,9 +204,10 @@ def pipeline(genes, gwas, output_dir, args, logger, bootstrap=False):
     # Traits
     if not bootstrap:
         logger.write('Identifying GWAS traits...')
+    #multimorbid3dm: I add TWO additional argument for the input of the find_snp_disease.find_disease() function -> args.window_size AND args.window_control 
     sig_res = find_snp_disease.find_disease(
         gwas, output_dir, output_dir, args.ld, args.correlation_threshold,
-        args.window, args.population, args.ld_dir, logger, bootstrap=bootstrap)
+        args.window, args.window_size, args.window_control, args.population, args.ld_dir, logger, bootstrap=bootstrap)
     return sig_res
 
 def prep_bootstrap(sim, gene_num, sims_dir, res_dict, grn_genes, gwas, args):
@@ -289,10 +308,11 @@ if __name__=='__main__':
     if args.genes:
         genes = parse_genes(args.genes, logger)
     else:
+        #multimorbid3dm hw realization: added args.window_size AND args.window_control here!
         snps, genes = parse_snps(
             args.snps, args.trait, args.pmid, gwas, grn, args.output_dir,
             args.non_spatial, args.non_spatial_dir, args.snp_ref_dir, args.gene_ref_dir,
-            args.ld, args.correlation_threshold, args.window, args.population, args.ld_dir,
+            args.ld, args.correlation_threshold, args.window, args.window_size, args.window_control, args.population, args.ld_dir,
             logger)
         if genes.empty:
             logger.write('Exiting: No gene targets for SNPs found.')
