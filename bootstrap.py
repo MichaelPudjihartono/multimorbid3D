@@ -114,8 +114,14 @@ def parse_args():
         '-c', '--correlation-threshold', default=0.8, type=int,
         help='The r-squared correlation threshold to use.')
     parser.add_argument(
-        '-w', '--window', default=5000, type=int,
+        '-w', '--window', action='store_true', default=False,
+        help='Use genomic distance as filter for ld')
+    parser.add_argument(
+        '-ws', '--window-size', default=5000, type=int,
         help='The genomic window (+ or - in bases) within which proxies are searched. Default = 5000')
+    parser.add_argument(
+        '-wc', '--window-control', default=5000, type=int,
+        help='The genomic window (+ or - in bases) within which proxies are searched in the problematic locus on chromosome 17, highly recommended to keep this number low. Default = 5000')
     parser.add_argument(
          '--population', default='EUR', choices=['EUR'],
         help='The ancestral population in which the LD is calculated. Default = "EUR"')
@@ -186,9 +192,10 @@ def pipeline(genes, gwas, output_dir, args, logger, bootstrap=False):
     # Traits
     if not bootstrap:
         logger.write('Identifying GWAS traits...')
+    #The ONLY multimorbid3dm EDIT: I add TWO additional argument for the input of the find_snp_disease.find_disease() function -> args.window_size AND args.window_control
     sig_res = find_snp_disease.find_disease(
         gwas, output_dir, output_dir, args.ld, args.correlation_threshold,
-        args.window, args.population, args.ld_dir, logger, bootstrap=bootstrap)
+        args.window, args.window_size, args.window_control, args.population, args.ld_dir, logger, bootstrap=bootstrap)
     return sig_res
 
 def prep_bootstrap(sim, gene_num, sims_dir, res_dict, grn_genes, gwas, args):
