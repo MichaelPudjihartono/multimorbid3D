@@ -42,7 +42,7 @@ def ld_proxy_chrom(chrom, query_snps, corr_thresh, window, window_size, window_c
     pd.options.mode.chained_assignment = None
     db = create_engine(f'sqlite:///{ld_dir}/{chrom}.db', 
                        echo=False, poolclass=NullPool)
-    sql = '''SELECT * FROM ld WHERE rsidq = '{}' AND corr >= {};'''
+    sql = '''SELECT * FROM ld WHERE rsidq = '{}' AND corr*corr >= {};'''
     snps = []
     with db.connect() as conn:
         for snp in query_snps:

@@ -29,8 +29,6 @@ def write_results(df, output_fp, logger):
     logger.write('Writing output...')
     df.to_csv(output_fp, sep='\t', index=False)
 
-
-
 def parse_input(inputs):
     '''Return a dataframe of gene input.'''
     logger.write('Parsing input...')
@@ -111,7 +109,7 @@ def parse_args():
         '--ld', action='store_true', default=False,
         help='Include LD SNPs in identifying eQTLs and GWAS traits. Default = False')
     parser.add_argument(
-        '-c', '--correlation-threshold', default=0.8, type=int,
+        '-c', '--correlation-threshold', default=0.8, type=float,
         help='The r-squared correlation threshold to use.')
     parser.add_argument(
         '-w', '--window', action='store_true', default=False,
