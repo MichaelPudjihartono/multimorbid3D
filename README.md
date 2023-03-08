@@ -6,6 +6,7 @@ The scripts contained in this repository is a version of the original multimorbi
 
 
 The base command used to generate level 0-4 PPIN and identify multimorbid conditions used in the manuscript is shown below:
+
 python comorbid.py -g genes.txt --grn-dir filtered_GRN -o output_dir --ld --window-control 10000 --levels 4 --ppin string --string-score 0.9 --bootstrap --bootstraps 350 
 
 The usage are otherwise identical to the original multimorbid3D pipeline. Please refer to (https://github.com/Genome3d/multimorbid3D) for a complete documentation of the pipeline.
