@@ -5,7 +5,7 @@ INTERACTION_PARTNERS = "interaction_partners"
 
 PARAMS = {
     "species": 9606,
-    "limit": 5,
+    #"limit": 5,
     "echo_query": 1,
     "caller_identity": ""}
 
